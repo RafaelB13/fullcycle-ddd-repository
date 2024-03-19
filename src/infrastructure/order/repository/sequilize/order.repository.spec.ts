@@ -23,7 +23,7 @@ describe("Order repository test", () => {
       sync: { force: true },
     });
 
-    await sequelize.addModels([
+    sequelize.addModels([
       CustomerModel,
       OrderModel,
       OrderItemModel,
@@ -34,6 +34,100 @@ describe("Order repository test", () => {
 
   afterEach(async () => {
     await sequelize.close();
+  });
+
+  it("Should update an order", async () => {
+    const customerRepository = new CustomerRepository();
+    const customer = new Customer("1", "Customer 1");
+    const address = new Address("Street 1", 1, "Zipcode 1", "City 1");
+    customer.changeAddress(address);
+    await customerRepository.create(customer);
+
+    const productRepository = new ProductRepository();
+    const product = new Product("1", "Product 1", 10);
+    await productRepository.create(product);
+
+    const ordemItem = new OrderItem(
+      "1",
+      product.name,
+      product.price,
+      product.id,
+      2
+    );
+
+    let order = new Order("1", "1", [ordemItem]);
+
+    const orderRepository = new OrderRepository();
+    await orderRepository.create(order);
+
+    let orderModel = await OrderModel.findOne({
+      where: { id: order.id },
+      include: ["items"],
+    });
+
+    console.log(orderModel.toJSON())
+
+
+    expect(orderModel.toJSON()).toStrictEqual({
+      id: "1",
+      customer_id: "1",
+      total: order.total(),
+      items: [
+        {
+          id: ordemItem.id,
+          name: ordemItem.name,
+          price: ordemItem.price,
+          quantity: ordemItem.quantity,
+          order_id: "1",
+          product_id: "1",
+        },
+      ],
+    });
+
+    const newProduct = new Product("2", "Product 2", 10);
+    await productRepository.create(newProduct);
+
+    const ordemItem2 = new OrderItem(
+      "2",
+      newProduct.name,
+      newProduct.price,
+      newProduct.id,
+      1
+    );
+    order = new Order("1", "1", [ordemItem, ordemItem2]);
+
+    await orderRepository.update(order);
+
+    orderModel = await OrderModel.findOne({
+      where: { id: order.id },
+      include: ["items"],
+    });
+
+    console.log(orderModel.toJSON())
+
+    expect(orderModel.toJSON()).toStrictEqual({
+      id: "1",
+      customer_id: "1",
+      total: order.total(),
+      items: [
+        {
+          id: ordemItem.id,
+          name: ordemItem.name,
+          price: ordemItem.price,
+          quantity: ordemItem.quantity,
+          order_id: "1",
+          product_id: "1",
+        },
+        {
+          id: ordemItem2.id,
+          name: ordemItem2.name,
+          price: ordemItem2.price,
+          quantity: ordemItem2.quantity,
+          order_id: "1",
+          product_id: "2",
+        }
+      ],
+    });
   });
 
   it("should return all orders", async () => {
@@ -60,57 +154,6 @@ describe("Order repository test", () => {
     await orderRepository.create(order);
 
     expect(await orderRepository.findAll()).toStrictEqual([order]);
-  });
-
-  it("should update an order", async () => {
-    const customerRepository = new CustomerRepository();
-    const customer = new Customer("123", "Customer 1");
-    const address = new Address("Street 1", 1, "Zipcode 1", "City 1");
-    customer.changeAddress(address);
-    await customerRepository.create(customer);
-
-    const productRepository = new ProductRepository();
-    const product = new Product("123", "Product 1", 10);
-    await productRepository.create(product);
-
-    const orderItem = new OrderItem(
-      "1",
-      product.name,
-      product.price,
-      product.id,
-      2
-    );
-
-    const order = new Order("123", "123", [orderItem]);
-    const orderRepository = new OrderRepository();
-    await orderRepository.create(order);
-
-
-    const orderUpdate = new Order("123", "123", [orderItem]);
-
-    await orderRepository.update(orderUpdate);
-
-    const orderModel = await OrderModel.findOne({
-      where: { id: order.id },
-      include: ["items"],
-    });
-
-    expect(orderModel.toJSON()).toStrictEqual({
-      id: "123",
-      customer_id: "123",
-      total: orderUpdate.total(),
-      items: [
-        {
-          id: orderItem.id,
-          name: orderItem.name,
-          price: orderItem.price,
-          quantity: orderItem.quantity,
-          order_id: "123",
-          product_id: "123",
-        },
-      ],
-    });
-
   });
 
   it("should return an order", async () => {
@@ -190,5 +233,5 @@ describe("Order repository test", () => {
     });
   });
 
-  
+
 });
